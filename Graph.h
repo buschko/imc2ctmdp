@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <stdexcept>
+#include <stdio.h>
 
 // Forward-Declarations
 class State;
