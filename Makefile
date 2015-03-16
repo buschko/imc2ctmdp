@@ -5,8 +5,13 @@ sed \
 -e 's/windows.*/windows/' \
 -e 's/mingw.*/mingw/')
 
-CXX           = /usr/local/bin/g++-4.9
-#CXX           = /usr/bin/g++
+ifeq ($(OSTYPE),darwin)
+	CXX           = /usr/local/bin/g++-4.9
+else
+ifeq ($(OSTYPE),linux)
+	CXX           = /usr/bin/g++
+endif
+endif
 #CXX           = $(CADP)/src/com/cadp_cc
 CXXDEBUG      = -g -DNO_EXCEPTION_CATCH -DDEBUG -D_GLIBCXX_CONCEPT_CHECKS
 CXXOPTIMIZE   = -O2 -fno-strength-reduce -DNDEBUG
