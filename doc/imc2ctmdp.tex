@@ -1,0 +1,417 @@
+\documentclass[a4paper,11pt]{scrartcl}
+\usepackage[T1]{fontenc}
+\usepackage[latin1]{inputenc}
+\usepackage{alltt}
+\usepackage{times}
+\usepackage[pdftex,
+  colorlinks=true,
+  linkcolor=blue
+]{hyperref}
+
+\title{imc2ctmdp - Tool to transform IMC to CTMDP}
+\author{Clemens Hammacher (hamcle@studcs.uni-sb.de)}
+\date{\today}
+
+\newcommand{\imcToCtmdp}{\textbf{\textit{imc2ctmdp}} }
+\newcommand{\dd}{-- --}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Purpose of this document}
+This document describes the usage of the \imcToCtmdp Tool, that's mainly used
+to transform an IMC (interactive markov chain) into a CTMDP (continuous-time
+markov decision process), and has been developed at the Dependable Systems
+and Software group\cite{depend-group} of the Saarland University.
+It lists and describes the available input formats,
+output formats, and command-line options. The transformation in general is
+described in a dedicated pdf-file\cite{paper-transformation}.
+
+
+\section{Input formats}
+
+In the following, we describe the different input formats, that \imcToCtmdp can
+handle.
+
+\subsection{the BCG format}\label{input-bcg}
+
+BCG stands for \textit{binary coded graph}. A BCG file contains states and
+labelled transitions.
+Transitions are interpreted as markov transitions, if they contain the string
+``rate ''
+
+There is a library needed in order to read BCGs, called CADP,
+see \cite{bcg-page}.
+
+\subsection{the PRISM format}\label{input-prism}
+
+A PRISM file is a model description in a kind of ``programming language'', that
+can be interpreted, checked and exported by the PRISM software.
+
+For a description of the language, see \cite{prism-page}.
+
+In order to read such a PRISM file, there must exist two additional files
+that contain the state labels and the transitions. These files can be generated
+by the PRISM software, using the switches ``-exportlabels'' and
+``-exporttrans''.
+
+To introduce interactive transitions, we define special comments in the PRISM
+file. For example, the line\\
+\texttt{const int act1 = 1001; // Action ``Action1''}\\
+tells the parser, that every occuring transition of the rate 1001 should be
+replaced by an interactive transition with the label ``Action1''.
+You may also use the data type ``double'' instead of ``int'' or add additional space (blanks or tabs).
+
+
+\section{Output formats}
+
+In the following, we describe the different output formats that \imcToCtmdp can handle.
+
+\subsection{the ETMCC format}\label{output-etmcc}
+
+This is the format used by the ETMCC model checker \cite{etmcc-page}.
+There will be two files written: The first one, that usually takes the
+extension ``.tra'', contains the transitions, the second one (see \ref{output-lab}) the state labels.
+
+The header of the ``tra''-file contains the number of states and transitions,
+in the following form:
+\begin{verbatim}
+STATES <nrOfStates>
+TRANSITIONS <nrOfTransitions>
+\end{verbatim}
+
+After the header, there will be a list of all transitions, one per line.
+They are ordered by the number of the emanating state. The states are numbered
+from 1 on (i.e. the last state has the number <nrOfStates>).
+The transitions are listed as follows:
+\begin{verbatim}
+<action> <sourceStateNr> <targetStateNr> <rate> <type>
+\end{verbatim}
+The action is ``d'' for interactive transitions and ``r'' for markov transitions.
+The rate of interactive transitions is ``0.0''.
+The type is ``I'' for interactive (immediate) transitions and ``M'' for markov transitions.
+
+Pay attention to the fact that this file contains markov and interactive
+transitions, i.e. in fact it describes a strictly alternating IMC, and no
+CTMDP.
+
+\subsection{the CTMDP formats}\label{output-ctmdp}
+
+The CTMDP format is very similar to the ETMCC format. It will also create two
+files, one for the transitions (``.ctmdp'' or ``.ctmdpi'') and one for the
+state labels (see \ref{output-lab}).
+
+The transitions-file begins with the header, that contains the number of states
+and a list of all actions.
+\begin{verbatim}
+STATES <nrOfStates>
+#DECLARATION
+<firstLabel>
+<secondLabel>
+...
+#END
+\end{verbatim}
+
+After the header, a list of all transitions is printed. It is different for ``.ctmdp'' and ``.ctmdpi'' files, and is described below.
+
+\subsubsection{.ctmdp}
+
+The lines have the form
+\begin{verbatim}
+<sourceStateNr> <targetStateNr> <action> <propability>
+\end{verbatim}
+
+Remember that there may be multiple lines with the same <sourceStateNr> and the same <action>.
+
+\subsubsection{.ctmdpi}
+
+The lines have the form
+\begin{verbatim}
+<sourceStateNr> <action>
+* <targetStateNr1> <propability1>
+* <targetStateNr2> <propability2>
+...
+\end{verbatim}
+
+Remember that this format can describe internal nondeterminism, when there are
+multiple entries with the same <sourceStateNr> and <action>.
+
+If there is no internal nondeterminism, this situation will not occure.
+
+\subsection{the .lab file}\label{output-lab}
+
+The ``.lab''-file describes the state labels.
+Just like the other formats, it consists of a header and a list of state
+descriptions.
+
+The header enumerates all labels used and looks like
+\begin{verbatim}
+#DECLARATION
+<firstLabel>
+<secondLabel>
+...
+#END
+\end{verbatim}
+where - at the moment - only the two labels ``reach'' and ``absorbing'' may
+occure.
+
+After that, there is a list of all labelled states, in the form
+\begin{verbatim}
+<stateNr> <label> [<label> [<label> ...]]
+\end{verbatim}
+
+Unlabelled states do not occure in the list.
+
+
+\section{Command-line options}
+
+\subsection{specifying files}
+
+When specifying files, the format of the file is extracted from the extension
+(i.e. a file named ``test.ctmdp'' is assumed to be in ``ctmdp'' format).
+If you want to override this, you may give the format in front of the filename
+and separated by a colon (i.e. ``ctmdp:testfile.txt'' for the file
+``testfile.txt'' in ``ctmdp'' format).
+
+If no format can be extracted from the filename, it is assumed to be ``bcg'',
+and ``.bcg'' is appended as extension.
+
+
+\subsubsection{\label{sec:input-file}specifying the input file}
+
+The input file can either be given just behind the other command-line
+options, or by the parameter ``-i'' (or ``\dd input'').
+The following commands are equal:
+\begin{verbatim}
+./imc2ctmdp test.bcg
+./imc2ctmdp -i test.bcg
+./imc2ctmdp -itest.bcg
+./imc2ctmdp --input=test.bcg
+\end{verbatim}
+
+\subsubsection{\label{sec:output-files}specifying the output files}
+
+The output filenames can be given as comma-separated list by the option ``-o''
+(or ``\dd output'').
+If no output filenames are specified, the output file will be in BCG format
+and will have the name of the input file without extension and extended by
+``\_ctmdp.bcg''.
+
+If you just give the format, and no filename (e.g. ``ctmdp:''), the filename
+will be the input filename without extension, appended by ``\_ctmdp'' and the
+format as extension (i.e. ``cmtpd:'' is the same as ``myIMC\_ctmdp.ctmdp'',
+if the input filename was ``myIMC.bcg'').
+
+\subsection{\label{sec:input-options}input-related options}
+
+There are two options concerning the input file: ``-k'', or ``\dd no-cycle-search'',
+disables searching for interactive cycles while reading the input file.
+Only use this option if you are sure that there are no interactive cycles,
+because otherwise, the program may hang or crash.
+The other option is ``-n'', or ``\dd no-uniformize'', that disables uniformizing the
+IMC after reading it from the input file. If the IMC is not uniform, then
+most probably the CTMDP will not be uniform too. In this case, a warning is
+printed.
+
+\subsection{\label{sec:output-options}output-related options}
+
+The only option relating the output files is ``-s'' (or ``\dd search-absorbing'').
+This option solely affects the .lab file (\ref{output-lab}), so using it only
+makes sense if there is at least one .lab file written.
+The option enables searching for (and labelling) ``absorbing states'', i.e.
+a kind of ``deadlock'' states. In IMC, that is an interactive state, whose
+outgoing transitions only lead to markov states, whose outgoing transitions
+lead back to the interactive state. Longer ``absorbing cycles'' are not found.
+
+\subsection{\label{sec:transformation-options}options concerning the transformation}
+
+The main option for the transformation is ``-a'', or ``\dd action''. This option sets
+the transition label that is used to indicate ``interesting'' states. Every
+read transition labelled with that label is removed, and the emanating state
+is marked. These marked states are preserved through the transformation, and
+are marked as ``reach'' in output .lab-files.
+
+Another option is ``-d'', or ``\dd delete-unreachable'', that tells the program to
+search for unreachable states and remove them. If there exist such states,
+this option may decrease the execution time of the transformation, but of
+course the check itself needs some time. The check is done twice: the first time
+just before the transformation, and another time just after the transformation,
+because on weird IMCs, the transformation may produce unreachable states.
+
+\subsection{alphabetical index}
+
+\begin{itemize}
+
+\item --a, \quad \dd action\\
+      Sets the label that markes the interesting states.
+
+\item --c, \quad \dd no-color\\
+      Do not use colored output.
+
+\item --d, \quad \dd delete-unreachable\\
+      Search for unreachable states and remove them.
+
+\item --i, \quad \dd input=filename[.bcg]\\
+      Specifies the input filename (see \ref{sec:input-file}). If no extension is given, ".bcg"
+      will be appended.
+
+\item --k, \quad \dd no-cycle-search\\
+      Don't search for interactive cycles (only use this option if you know
+      that no interactive cycles exist, otherwise the program may fail).
+
+\item --l, \quad \dd no-labels\\
+      Don't compute the labels of transitions to the markov successors of interactive states.
+      If this is set, all action labels will be ``DFS''.
+
+\item --n, \quad \dd no-uniformize\\
+      Per default, the IMC is uniformized. By this option, you can
+      disable this feature.
+
+\item --o, \quad \dd output=filenames\\
+      Specifies the output files (see \ref{sec:output-files}).
+
+\item --s, \quad \dd search-absorbing\\
+      Search for absorbing (``deadlock'') states and label them in the .lab
+      file.
+
+\item --h, \quad \dd help\\
+      Print a little help.
+
+\end{itemize}
+
+\section{Examples of usage}
+
+Some of the examples use other tools, like \emph{PRISM}\cite{prism-page},
+\emph{MRMC}\cite{mrmc-page} or the tool \emph{prism2bcg}, that may have been
+provided together with \imcToCtmdp.
+
+\subsection{simple transformation from BCG to BCG}
+
+This is the simplest thing you can do. If the interesting action is ``action'',
+you can type one of the following (the first three are equal):
+\begin{verbatim}
+./imc2ctmdp -a action input.bcg
+./imc2ctmdp -i input -a action
+./imc2ctmdp -a action -o bcg: input.bcg
+./imc2ctmdp -a action -o different_output.bcg \
+    input.bcg
+\end{verbatim}
+
+\subsection{PRISM file to MRMC format}
+
+A PRISM file in general contains only markov transitions.
+In \ref{input-prism}, we introduced a way to define interactive transitions
+in a PRISM file. Now we want to check for the action ``critical''.
+To make it more interesting, we use a PRISM model (cluster.sm) that needs a
+constant (N) to be set.
+Now there are two differing ways to transform this file (which holds an IMC)
+into a CTMDP in -- let's say -- .ctmdpi format.
+
+The first one makes use of the original PRISM software, the second one uses
+the tool prism2bcg, that includes the PRISM library and is a little bit more
+handy.
+
+\subsubsection{using PRISM}
+
+\begin{enumerate}
+
+\item Create the .trans and .labels files
+
+These files are needed by \imcToCtmdp to read the PRISM file. They are created
+by the PRISM software, using the switches ``-exportlabels'' and
+``-exporttrans'', and must have exactly the same filename as the PRISM file,
+except for the extension, that must be ``.labels'' and ``.trans'' respectively.
+\begin{verbatim}
+$PRISM_PATH/bin/prism \
+    -exportlabels cluster.labels \
+    -exporttrans cluster.trans \
+    -const N=32 \
+    cluster.sm
+\end{verbatim}
+
+\item Transformation
+
+Now you can use the file cluster.sm as input file for \imcToCtmdp. It will also
+read the two files that we just created.
+\begin{verbatim}
+./imc2ctmdp -a critical -o ctmdpi: cluster.sm
+\end{verbatim}
+The generated output files are cluster\_ctmdp.ctmdpi and cluster\_ctmdp.lab.
+These files can directly be read by MRMC.
+
+If you prefer other output filename, you could use for example
+\begin{verbatim}
+./imc2ctmdp -a critical -o clust32.ctmdpi \
+    cluster.sm
+\end{verbatim}
+which will create clust32.ctmdpi and clust32.lab.
+
+\end{enumerate}
+
+\subsubsection{using prism2bcg}
+
+\begin{enumerate}
+
+\item Converting PRISM to BCG
+
+Using the tool \emph{prism2bcg}, you can easily convert the PRISM file to a
+BCG file, that contains all information (e.g. the interactive transitions).
+\begin{verbatim}
+$PRISM2BCG_DIR/bin/prism2bcg -const N=32 \
+    cluster.sm
+\end{verbatim}
+This creates the file cluster.bcg. You may again want to set another output
+file:
+\begin{verbatim}
+$PRISM2BCG_DIR/bin/prism2bcg -const N=32 \
+    -o clust32.bcg cluster.sm
+\end{verbatim}
+
+\item Transforming BCG to .ctmdpi
+
+Now you can just use the cluster.bcg as input file for \imcToCtmdp and create
+the desired .ctmdpi file.
+\begin{verbatim}
+./imc2ctmdp -a critical -o ctmdpi: cluster.bcg
+\end{verbatim}
+The output file will be cluster\_ctmdp.ctmdpi, but you can of course change
+this.
+
+\end{enumerate}
+
+
+
+\bibliographystyle{plain}
+\begin{thebibliography}{m}
+
+\bibitem{depend-group}
+Homepage of the Dependable Systems Group.\\
+\url{http://depend.cs.uni-sb.de}.
+
+\bibitem{paper-transformation}
+\emph{Holger Hermanns, Sven Johr.}\\
+Towards analysing nondeterministic specifications of stochastic systems
+
+\bibitem{bcg-page}
+BCG manual page.\\
+\url{http://www.inrialpes.fr/vasy/cadp/man/bcg.html}
+
+\bibitem{prism-page}
+PRISM homepage.\\
+\url{http://www.cs.bham.ac.uk/~dxp/prism/}
+
+\bibitem{etmcc-page}
+ETMCC homepage.\\
+\url {http://www7.informatik.uni-erlangen.de/etmcc/}
+
+\bibitem{mrmc-page}
+MRMC homepage.\\
+\url{http://wwwhome.cs.utwente.nl/~zapreevis/mrmc/}
+
+\end{thebibliography}
+
+\end{document}
+
