@@ -1,9 +1,16 @@
+OSTYPE		:=	$(shell uname -s | tr '[:upper:]' '[:lower:]' | \
+sed \
+-e 's/cygwin.*/cygwin/' \
+-e 's/irix../irix/' \
+-e 's/windows.*/windows/' \
+-e 's/mingw.*/mingw/')
+
 CXX           = /usr/local/bin/g++-4.9
 #CXX           = /usr/bin/g++
 #CXX           = $(CADP)/src/com/cadp_cc
 CXXDEBUG      = -g -DNO_EXCEPTION_CATCH -DDEBUG -D_GLIBCXX_CONCEPT_CHECKS
 CXXOPTIMIZE   = -O2 -fno-strength-reduce -DNDEBUG
-CXXOPTIONS    = -Wall -W -Wpointer-arith -Winline
+CXXOPTIONS    = -Wall -W -Wpointer-arith -Winline -m32
 ifeq ($(OSTYPE),nt_nocygwin)
   CXXOPTIONS += -mno-cygwin -DNT_NOCYGWIN -DGETTIMEOFDAY_IS_ABSENT
 endif
@@ -14,12 +21,24 @@ CXXINCLUDE    = -I$(CADP)/incl
 ifeq ($(OSTYPE),nt_nocygwin)
   CXXLINK     = -mno-cygwin -L$(CADP)/bin.win32 -lBCG_IO -lBCG -lm
 else
-  CXXLINK     = -L$(CADP)/bin.mac86 -lBCG_IO -lBCG -lm
+ifeq ($(OSTYPE),darwin)
+  CXXLINK     = -L$(CADP)/bin.mac86 -m32 -lBCG_IO -lBCG -lm
+else
+ifeq ($(OSTYPE),linux)
+	CXXLINK     = -L$(CADP)/bin.x64 -lBCG_IO -lBCG -lm
+endif
+endif
 endif
 ifeq ($(OSTYPE),nt_nocygwin)
   CADP       ?= /Programme/cadp
 else
+ifeq ($(OSTYPE),darwin)
   CADP       ?= /lib/cadp
+else
+ifeq ($(OSTYPE),linux)
+	CADP       ?= /lib/cadp
+endif
+endif
 endif
 
 # if you want debug options, uncomment the following line
